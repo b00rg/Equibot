@@ -1,0 +1,103 @@
+import alpaca_trade_api as tradeapi
+import asyncio
+import numpy as np
+import ta
+
+# Define your API credentials
+api_key = 'YOUR_API_KEY'
+api_secret = 'YOUR_API_SECRET'
+base_url = 'https://paper-api.alpaca.markets'
+
+# Create an instance of the Alpaca API
+api = tradeapi.REST(api_key, api_secret, base_url, api_version='v2')
+
+# Define the stock you want to trade and the amount of capital to use
+stock_symbol = 'AAPL'
+capital = 10000
+
+# Define the trading strategy parameters
+roc_window = 50
+roc_threshold = 0.02
+stop_loss_threshold = 0.01
+max_trades_per_day = 2
+
+# Define the async function to submit orders
+async def submit_order(order):
+    return await api.submit_order(order)
+
+# Define the trading strategy
+def trading_strategy(stock_symbol, roc_window, roc_threshold, stop_loss_threshold, capital):
+    # Get the current position and account information
+    position = api.get_position(stock_symbol)
+    account = api.get_account()
+
+    # Get the closing prices for the stock over the past 50 days and calculate the ROC
+    prices = api.get_barset(stock_symbol, 'day', limit=roc_window).df[stock_symbol]['close'].values
+    roc = ta.ROC(prices, window=roc_window)
+
+    # Calculate the average ROC and check if it meets the buy or sell threshold
+    avg_roc = np.mean(roc)
+    if avg_roc > roc_threshold and position is None:
+        # If the average ROC is above the buy threshold and we don't have a position, place a buy order
+        # Calculate the position size based on the current market volatility and the available capital
+        atr = ta.ATR(prices, window=roc_window)[-1]
+        position_size = int(capital / prices[-1] / atr)
+        # Place a stop-loss order at the current price minus the stop loss threshold
+        stop_price = prices[-1] * (1 - stop_loss_threshold)
+        order = {
+            'symbol': stock_symbol,
+            'qty': position_size,
+            'side': 'buy',
+            'type': 'limit',
+            'time_in_force': 'gtc',
+            'limit_price': prices[-1],
+            'stop_loss': {
+                'stop_price': stop_price,
+                'limit_price': stop_price,
+            },
+        }
+        asyncio.create_task(submit_order(order))
+        return 'buy'
+   elif avg_roc < -roc_threshold and position is not None:
+        # If the average ROC is below the sell threshold and we have a position, place a sell order
+        # Place a stop-loss order at the current price minus the stop loss threshold
+        stop_price = prices[-1] * (1 + stop_loss_threshold)
+        order = {
+            'symbol': stock_symbol,
+            'qty': position.qty,
+            'side': 'sell',
+            'type': 'limit',
+            'time_in_force': 'gtc',
+            'limit_price': prices[-1],
+            'stop_loss': {
+                'stop_price': stop_price,
+                'limit_price': stop_price,
+            },
+        }
+        asyncio.create_task(submit_order(order))
+        return 'sell'
+    elif account.trading_blocked:
+        print('Account is currently restricted from trading.')
+        return None
+    elif len(api.list_positions()) >= max_trades_per_day:
+        print(f'Maximum number of trades per day ({max_trades_per_day}) has been reached.')
+        return None
+    elif position is not None:
+        # Close the position if the profit is below a certain threshold
+        for pos in api.list_positions():
+            if pos.symbol == stock_symbol and pos.status == 'filled':
+                if (pos.filled_avg_price - pos.submitted_at.price) / pos.submitted_at.price < -0.001:
+                    profit += (pos.filled_qty * (pos.filled_avg_price - pos.submitted_at.price))
+                    order = {
+                        'symbol': stock_symbol,
+                        'qty': pos.qty,
+                        'side': 'sell',
+                        'type': 'limit',
+                        'time_in_force': 'gtc',
+                        'limit_price': prices[-1],
+                    }
+                    asyncio.create_task(submit_order(order))
+                    return 'sell'
+        return None
+    else:
+        return None
