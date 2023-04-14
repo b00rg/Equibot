@@ -1,8 +1,8 @@
-#Introduction
+/Introduction
 
 The purpose of this repository is to provide an open-source framework for creating and testing trading bots. The bots are designed to identify market trends, select stocks, generate entry and exit signals, and manage risk.
 
-#Features
+/Features
 
 Identifying the Market Trend: The first step in a momentum trading strategy is to identify the trend of the market. This can be done using technical analysis tools like moving averages, trend lines, or chart patterns. The repository provides various tools for this purpose.
 Selecting Stocks: Once the market trend has been identified, the next step is to select the stocks that are likely to perform well in the current market conditions. Stocks that are showing strong momentum in the same direction as the market trend are often preferred. The bots are backtested on data for certain time frames for certain stocks to determine which ones are the best performers.
