@@ -1,19 +1,24 @@
 # Introduction
 
-The purpose of this repository is to provide an open-source framework for creating and testing trading bots. The bots are designed to identify market trends, select stocks, generate entry and exit signals, and manage risk.
+This repository is dedicated to successful trading bots developed by traders and developers from different parts of the world. The aim of the repository is to provide a comprehensive collection of well-written trading bots for individuals interested in automated trading. 
 
-# Features
+# Trading Bots
 
-*Identifying the Market Trend:* The first step in a momentum trading strategy is to identify the trend of the market. This can be done using technical analysis tools like moving averages, trend lines, or chart patterns. The repository provides various tools for this purpose.
+The repository houses various trading bots that have been developed to trade stocks automatically based on a defined strategy. All trading bots are written in Python and use the Alpaca API to interact with the stock market. Below are some of the trading bots available in the repository:
 
-*Selecting Stocks:* Once the market trend has been identified, the next step is to select the stocks that are likely to perform well in the current market conditions. Stocks that are showing strong momentum in the same direction as the market trend are often preferred. The bots are backtested on data for certain time frames for certain stocks to determine which ones are the best performers.
+## Mean Reversion Strategy
+Mean reversion is a trading strategy that assumes that if a stock price deviates significantly from its mean, it will eventually return to its mean. This trading bot identifies overbought or oversold stocks and enters a trade when the price is expected to revert to the mean.
 
-*Ratio Calculation:* We are exploring the possibility of figuring out ratios for stocks. We are using a ranking system for ratio calculation.
+## Momentum Trading
+Momentum trading is a strategy that involves buying stocks that have been trending upwards in price and selling those that have been trending downwards. This trading bot identifies stocks with upward price momentum and enters a trade in the same direction as the trend.
 
-*Entry and Exit Signals:* Momentum traders typically use technical indicators like Relative Strength Index (RSI), Moving Average Convergence Divergence (MACD), or Stochastic Oscillator to generate entry and exit signals. The repository provides various indicators for generating signals.
+## Trend Following
+Trend following is a trading strategy that involves identifying and following an existing market trend. This trading bot identifies the direction of the market trend and enters trades in the same direction as the trend.
 
-*Risk Management:* Managing risk is an important part of any trading strategy. Momentum traders often use stop-loss orders to limit potential losses, and may also use position sizing techniques to manage their exposure to individual trades. The repository provides various tools for managing risk.
+## Scalping
+Scalping is a trading strategy that involves making multiple trades in a short period to profit from small price movements. This trading bot identifies stocks with high liquidity and enters trades to profit from small price movements.
 
-*Monitoring and Adjusting the Strategy:* Momentum traders need to continually monitor the market and their positions to ensure that their strategy is still effective. Adjustments may need to be made if market conditions change or if the strategy is not performing as expected. The bots are set on a timer to search for stocks and redo the tournament style.
+## News Trading
+News trading is a strategy that involves trading based on the release of news or significant market events. This trading bot monitors news feeds and enters trades when significant news is released.
 
-*Integration with Cloud Environment:* The code is integrated into a cloud environment to enable scalability and accessibility. This allows users to easily run and test the bots on different stocks and time frames.
+**Disclaimer:** The trading bots provided in this repository are for educational and experimental purposes only. They should not be used for actual trading, and we do not make any guarantees about their performance or effectiveness in live markets. Trading involves risk, and you should only trade with funds that you can afford to lose. Any trades you make using these bots are entirely at your own risk, and the repository owners and contributors will not be held responsible for any losses you may incur. Remember, this is just a fun side project in a GitHub repository, and you should always do your own research before making any trades.
