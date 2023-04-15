@@ -9,13 +9,13 @@ The repository houses various trading bots that have been developed to trade sto
 ## Mean Reversion Strategy
 Mean reversion is a trading strategy that assumes that if a stock price deviates significantly from its mean, it will eventually return to its mean. This trading bot identifies overbought or oversold stocks and enters a trade when the price is expected to revert to the mean.
 
-## Momentum Trading
+## Momentum Trading
 Momentum trading is a strategy that involves buying stocks that have been trending upwards in price and selling those that have been trending downwards. This trading bot identifies stocks with upward price momentum and enters a trade in the same direction as the trend.
 
-## Trend Following
+## Trend Following
 Trend following is a trading strategy that involves identifying and following an existing market trend. This trading bot identifies the direction of the market trend and enters trades in the same direction as the trend.
 
-## Scalping
+## Scalping
 Scalping is a trading strategy that involves making multiple trades in a short period to profit from small price movements. This trading bot identifies stocks with high liquidity and enters trades to profit from small price movements.
 
 ## News Trading
