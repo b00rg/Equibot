@@ -1,0 +1,66 @@
+import alpaca_trade_api as tradeapi
+import time
+
+api_key = '<YOUR_API_KEY>'
+api_secret = '<YOUR_SECRET_KEY>'
+base_url = 'https://paper-api.alpaca.markets' # replace with live endpoint if trading with real money
+
+api = tradeapi.REST(api_key, api_secret, base_url, api_version='v2')
+
+def get_prices(symbols):
+    # Get the current and past prices for the specified symbols
+    barset = api.get_barset(symbols, 'minute', limit=2)
+    prices = {}
+    for symbol in symbols:
+        prices[symbol] = {
+            'current_price': barset[symbol][-1].c,
+            'past_price': barset[symbol][0].c
+        }
+    return prices
+
+def get_target_allocation(symbols):
+    # Calculate the target allocation for each symbol
+    account = api.get_account()
+    total_value = float(account.cash)
+    positions = api.list_positions()
+    allocated_value = sum(float(p.market_value) for p in positions)
+    unallocated_value = total_value - allocated_value
+    target_allocation = {}
+    current_prices = get_prices(symbols)
+    for symbol in symbols:
+        asset = api.get_asset(symbol)
+        if asset.tradable:
+            target_allocation[symbol] = {
+                'allocation': 0.0,
+                'current_price': current_prices[symbol]['current_price']
+            }
+            target_allocation[symbol]['allocation'] = min(1.0, unallocated_value * target_allocation[symbol]['current_price'] / total_value)
+    return target_allocation
+
+def rebalance_portfolio(symbols):
+    # Rebalance the portfolio to match the target allocation
+    target_allocation = get_target_allocation(symbols)
+    positions = api.list_positions()
+    orders = []
+    for position in positions:
+        symbol = position.symbol
+        if symbol in symbols:
+            current_allocation = float(position.market_value) / float(api.get_account().cash)
+            target_allocation[symbol]['allocation'] -= current_allocation
+    for symbol, allocation in target_allocation.items():
+        if allocation['allocation'] != 0.0:
+            order_size = int(api.get_account().cash * allocation['allocation'] / allocation['current_price'])
+            side = 'buy' if allocation['allocation'] > 0.0 else 'sell'
+            orders.append({
+                'symbol': symbol,
+                'qty': abs(order_size),
+                'side': side,
+                'type': 'market',
+                'time_in_force': 'gtc'
+            })
+    api.submit_orders(orders)
+
+while True:
+    symbols = ['AAPL', 'GOOG', 'AMZN'] # Replace with your desired symbols
+    rebalance_portfolio(symbols)
+    time.sleep(60*60) # Rebalance every hour
