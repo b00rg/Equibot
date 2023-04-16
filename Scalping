@@ -1,0 +1,63 @@
+import alpaca_trade_api as tradeapi
+import time
+
+# Define your API credentials
+api_key = 'YOUR_API_KEY'
+api_secret = 'YOUR_API_SECRET'
+base_url = 'https://paper-api.alpaca.markets'
+
+# Create an instance of the Alpaca API
+api = tradeapi.REST(api_key, api_secret, base_url, api_version='v2')
+
+# Define the stock you want to trade and the amount of shares to buy/sell -> apple, 10 shares
+stock_symbol = 'AAPL'
+shares_to_trade = 10
+
+# Define your trading strategy
+def trading_strategy(stock_symbol):
+    # Get the current market data for the stock
+    barset = api.get_barset(stock_symbol, 'minute', limit=20)
+    stock_bars = barset[stock_symbol]
+
+    # Calculate the stock's moving average over the past 15 minutes
+    stock_prices = [bar.c for bar in stock_bars]
+    moving_average = sum(stock_prices[-15:]) / 15
+
+    # Get the current quote for the stock
+    quote = api.get_last_quote(stock_symbol)
+    current_price = quote.last_price
+
+    # Determine whether to buy, sell, or hold the stock
+    if current_price > 1.01 * moving_average:
+        return 'buy'
+    elif current_price < 0.99 * moving_average:
+        return 'sell'
+    else:
+        return 'hold'
+
+# Run the trading bot indefinitely
+while True:
+    action = trading_strategy(stock_symbol)
+    if action == 'buy':
+        bid_price = api.get_last_quote(stock_symbol).bidprice
+        limit_price = round(bid_price + 0.01, 2)
+        api.submit_order(
+            symbol=stock_symbol,
+            qty=shares_to_trade,
+            side='buy',
+            type='limit',
+            time_in_force='gtc',
+            limit_price=limit_price
+        )
+    elif action == 'sell':
+        ask_price = api.get_last_quote(stock_symbol).askprice
+        limit_price = round(ask_price - 0.01, 2)
+        api.submit_order(
+            symbol=stock_symbol,
+            qty=shares_to_trade,
+            side='sell',
+            type='limit',
+            time_in_force='gtc',
+            limit_price=limit_price
+        )
+    time.sleep(60) # wait for a minute before checking again
