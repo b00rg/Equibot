@@ -1,0 +1,118 @@
+import alpaca_trade_api as tradeapi
+import numpy as np
+import pandas as pd
+
+# Set up the Alpaca API key and secret
+API_KEY = 'your_api_key_here'
+SECRET_KEY = 'your_secret_key_here'
+api = tradeapi.REST(API_KEY, SECRET_KEY, api_version='v2')
+
+# Define the number of stocks to trade in and the amount to invest
+num_stocks = 5
+invest_amount = 1000
+
+# Define the lookback period for the value calculation
+lookback_period = 252
+
+# Define the minimum and maximum weights for each stock
+min_weight = -0.2
+max_weight = 0.2
+
+# Define the stop loss and take profit thresholds
+stop_loss = -0.05
+take_profit = 0.10
+
+# Define the short selling bot function
+def short_selling_bot():
+    # Get the historical prices and fundamentals for the top performing stocks
+    top_performers = api.get_top_gainers()
+    top_performer_symbols = [s.symbol for s in top_performers]
+    top_performer_prices = api.get_barset(top_performer_symbols, 'day', limit=lookback_period)
+    top_performer_close = pd.DataFrame({s: [top_performer_prices[s][i].c for i in range(lookback_period)] for s in top_performer_prices.keys()})
+    top_performer_fundamentals = api.get_fundamentals(top_performer_symbols, fields=['pe_ratio'])
+    top_performer_pe_ratio = pd.Series({f.symbol: f.pe_ratio for f in top_performer_fundamentals})
+
+    # Calculate the value for each stock based on the PE ratio
+    value = 1 / top_performer_pe_ratio
+    value = value.replace([np.inf, -np.inf], np.nan).dropna()
+    value = value.nsmallest(num_stocks)
+
+    # Calculate the weights for each stock based on the value
+    weights = value / value.sum()
+    weights = np.clip(weights, min_weight, max_weight)
+
+    # Place the short sell orders for each stock
+    for symbol, weight in weights.items():
+        current_price = api.get_last_trade(symbol).price
+        target_shares = int((invest_amount * weight) / current_price)
+        position = api.get_position(symbol)
+
+        if target_shares > abs(position.qty):
+            if position.side == 'long':
+                api.submit_order(
+                    symbol=symbol,
+                    qty=target_shares + abs(position.qty),
+                    side='sell',
+                    type='limit',
+                    time_in_force='gtc',
+                    limit_price=current_price * (1 - take_profit),
+                    order_class='bracket',
+                    take_profit=dict(limit_price=current_price * (1 - take_profit)),
+                    stop_loss=dict(limit_price=current_price * (1 + stop_loss))
+                )
+            else:
+                api.submit_order(
+                    symbol=symbol,
+                    qty=target_shares + abs(position.qty),
+                    side='sell',
+                    type='limit',
+                    time_in_force='gtc',
+                    limit_price=current_price * (1 + take_profit),
+                    order_class='bracket',
+                    take_profit=dict(limit_price=current_price * (1 - take_profit)),
+                    stop_loss=dict(limit_price=current_price * (1 + stop_loss))
+                )
+            elif target_shares < abs(position.qty):
+                  if position.side == 'short':
+                      # Close the existing short position
+                      api.submit_order(
+                          symbol=symbol,
+                          qty=abs(position.qty) - target_shares,
+                          side='buy',
+                          type='limit',
+                          time_in_force='gtc',
+                          limit_price=current_price * (1 - take_profit)
+                      )
+                  else:
+                      # Place a new short sell order
+                      api.submit_order(
+                          symbol=symbol,
+                          qty=target_shares - abs(position.qty),
+                          side='sell',
+                          type='limit',
+                          time_in_force='gtc',
+                          limit_price=current_price * (1 + take_profit),
+                          order_class='bracket',
+                          take_profit=dict(limit_price=current_price * (1 - take_profit)),
+                          stop_loss=dict(limit_price=current_price * (1 + stop_loss))
+                      )
+
+                      # Set a stop loss order for the remaining shares
+                      api.submit_order(
+                          symbol=symbol,
+                          qty=target_shares,
+                          side='buy',
+                          type='stop',
+                          time_in_force='gtc',
+                          stop_price=current_price * (1 + stop_loss)
+                      )
+
+                  # Cancel any unfilled orders for this stock
+                  open_orders = api.list_orders(
+                      status='open',
+                      symbol=symbol
+                  )
+
+                  if open_orders:
+                      for order in open_orders:
+                          api.cancel_order(order.id)
