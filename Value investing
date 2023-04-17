@@ -1,0 +1,103 @@
+import alpaca_trade_api as tradeapi
+import numpy as np
+import pandas as pd
+
+# Set up the Alpaca API key and secret
+API_KEY = 'your_api_key_here'
+SECRET_KEY = 'your_secret_key_here'
+api = tradeapi.REST(API_KEY, SECRET_KEY, api_version='v2')
+
+# Define the number of stocks to invest in and the amount to invest
+num_stocks = 10
+invest_amount = 1000
+
+# Define the lookback period for the value calculation
+lookback_period = 252
+
+# Define the minimum and maximum weights for each stock
+min_weight = -0.2
+max_weight = 0.2
+
+# Define the stop loss and take profit thresholds
+stop_loss = -0.05
+take_profit = 0.10
+
+# Define the investing bot function
+def sp500_investing_bot():
+    # Get the historical prices and fundamentals for the S&P 500 stocks
+    sp500_stocks = api.get_symbols()
+    sp500_prices = api.get_barset([s.symbol for s in sp500_stocks], 'day', limit=lookback_period)
+    sp500_close = pd.DataFrame({s: [sp500_prices[s][i].c for i in range(lookback_period)] for s in sp500_prices.keys()})
+    sp500_fundamentals = api.get_fundamentals([s.symbol for s in sp500_stocks], fields=['pe_ratio'])
+    sp500_pe_ratio = pd.Series({f.symbol: f.pe_ratio for f in sp500_fundamentals})
+    
+    # Calculate the value for each stock based on the PE ratio
+    value = 1 / sp500_pe_ratio
+    value = value.replace([np.inf, -np.inf], np.nan).dropna()
+    value = value.nlargest(num_stocks)
+    
+    # Calculate the weights for each stock based on the value
+    weights = value / value.sum()
+    weights = np.clip(weights, min_weight, max_weight)
+    
+    # Place the buy and sell orders for each stock
+    for symbol, weight in weights.items():
+        current_price = api.get_last_trade(symbol).price
+        target_shares = int((invest_amount * weight) / current_price)
+        position = api.get_position(symbol)
+        
+        if target_shares > position.qty:
+            if position.side == 'long':
+                api.submit_order(
+                    symbol=symbol,
+                    qty=target_shares - position.qty,
+                    side='buy',
+                    type='limit',
+                    time_in_force='gtc',
+                    limit_price=current_price * (1 + take_profit),
+                    order_class='bracket',
+                    take_profit=dict(limit_price=current_price * (1 + take_profit)),
+                    stop_loss=dict(limit_price=current_price * (1 - stop_loss))
+                )
+            else:
+                api.submit_order(
+                    symbol=symbol,
+                    qty=target_shares - position.qty,
+                    side='buy',
+                    type='limit',
+                    time_in_force='gtc',
+                    limit_price=current_price * (1 - stop_loss),
+                    order_class='bracket',
+                    take_profit=dict(limit_price=current_price * (1 + take_profit)),
+                    stop_loss=dict(limit_price=current_price * (1 - stop_loss))
+                )
+
+elif target_shares < position.qty:
+    api.submit_order(
+        symbol=symbol,
+        qty=position.qty - target_shares,
+        side='sell',
+        type='limit',
+        time_in_force='gtc',
+        limit_price=current_price * (1 - take_profit)
+    )
+    
+    # Set a stop loss order for the remaining shares
+    api.submit_order(
+        symbol=symbol,
+        qty=target_shares,
+        side='sell',
+        type='stop',
+        time_in_force='gtc',
+        stop_price=current_price * (1 - stop_loss)
+    )
+    
+# Cancel any unfilled orders for this stock
+open_orders = api.list_orders(
+    status='open',
+    symbol=symbol
+)
+
+if open_orders:
+    for order in open_orders:
+        api.cancel_order(order.id)
