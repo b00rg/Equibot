@@ -2,20 +2,8 @@
 
 The purpose of this repository is to provide an open-source framework for creating and testing trading bots. The bots are designed to identify market trends, select stocks, generate entry and exit signals, and manage risk.
 
-# Features
+# Stock picker
 
-*Identifying the Market Trend:* The first step in a momentum trading strategy is to identify the trend of the market. This can be done using technical analysis tools like moving averages, trend lines, or chart patterns. The repository provides various tools for this purpose.
+When it comes to implementing multiple trading strategies, the challenge lies in identifying the most suitable stock for each strategy. This process can be time-consuming and prone to errors if done manually. This branch is designed to automate the stock selection process for optimal trading strategies.
 
-*Selecting Stocks:* Once the market trend has been identified, the next step is to select the stocks that are likely to perform well in the current market conditions. Stocks that are showing strong momentum in the same direction as the market trend are often preferred. The bots are backtested on data for certain time frames for certain stocks to determine which ones are the best performers.
-
-*Ratio Calculation:* We are exploring the possibility of figuring out ratios for stocks. We are using a ranking system for ratio calculation.
-
-*Entry and Exit Signals:* Momentum traders typically use technical indicators like Relative Strength Index (RSI), Moving Average Convergence Divergence (MACD), or Stochastic Oscillator to generate entry and exit signals. The repository provides various indicators for generating signals.
-
-*Risk Management:* Managing risk is an important part of any trading strategy. Momentum traders often use stop-loss orders to limit potential losses, and may also use position sizing techniques to manage their exposure to individual trades. The repository provides various tools for managing risk.
-
-*Monitoring and Adjusting the Strategy:* Momentum traders need to continually monitor the market and their positions to ensure that their strategy is still effective. Adjustments may need to be made if market conditions change or if the strategy is not performing as expected. The bots are set on a timer to search for stocks and redo the tournament style.
-
-*Integration with Cloud Environment:* The code is integrated into a cloud environment to enable scalability and accessibility. This allows users to easily run and test the bots on different stocks and time frames.
-
-***Disclaimer:** The trading bots provided in this repository are for educational and experimental purposes only. They should not be used for actual trading, and we do not make any guarantees about their performance or effectiveness in live markets. Trading involves risk, and you should only trade with funds that you can afford to lose. Any trades you make using these bots are entirely at your own risk, and the repository owners and contributors will not be held responsible for any losses you may incur. Remember, this is just a fun side project in a GitHub repository, and you should always do your own research before making any trades.*
+By leveraging advanced algorithms and historical data analysis, this program can help traders pick the best stock for each trading strategy. It takes into consideration various factors such as market trends, volatility, historical performance, and risk appetite to identify the most profitable stock options.
