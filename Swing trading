@@ -1,0 +1,128 @@
+import alpaca_trade_api as tradeapi
+import pandas as pd
+import ta
+
+# Initialize Alpaca API
+api = tradeapi.REST('<API Key>', '<Secret Key>', base_url='https://paper-api.alpaca.markets')
+
+# Define parameters
+symbols = ['AAPL', 'AMZN', 'GOOG']
+timeframe = 'day'
+short_ma = 20
+long_ma = 50
+rsi_period = 14
+stop_loss_pct = 0.02
+take_profit_pct = 0.04
+max_daily_loss_pct = 0.01
+
+# Define functions
+def get_historical_data(symbol):
+    df = api.get_barset(symbol, timeframe, limit=long_ma+1).df[symbol]
+    return df
+
+def calculate_indicators(df):
+    df['SMA_short'] = df['close'].rolling(short_ma).mean()
+    df['SMA_long'] = df['close'].rolling(long_ma).mean()
+    df['RSI'] = ta.RSI(df['close'], rsi_period)
+    return df
+
+def check_signal(df):
+    if df.iloc[-2]['SMA_short'] < df.iloc[-2]['SMA_long'] and df.iloc[-1]['SMA_short'] > df.iloc[-1]['SMA_long'] and df.iloc[-1]['RSI'] < 30:
+        return 'buy'
+    elif df.iloc[-2]['SMA_short'] > df.iloc[-2]['SMA_long'] and df.iloc[-1]['SMA_short'] < df.iloc[-1]['SMA_long'] and df.iloc[-1]['RSI'] > 70:
+        return 'sell'
+    else:
+        return 'hold'
+
+def execute_trade(symbol, qty, side, order_type, limit_price=None, stop_price=None):
+    try:
+        if order_type == "market":
+            order = api.submit_order(
+                symbol=symbol,
+                qty=qty,
+                side=side,
+                type="market",
+                time_in_force="gtc"
+            )
+        elif order_type == "limit":
+            order = api.submit_order(
+                symbol=symbol,
+                qty=qty,
+                side=side,
+                type="limit",
+                time_in_force="gtc",
+                limit_price=limit_price
+            )
+        elif order_type == "stop":
+            order = api.submit_order(
+                symbol=symbol,
+                qty=qty,
+                side=side,
+                type="stop",
+                time_in_force="gtc",
+                stop_price=stop_price
+            )
+        elif order_type == "stop_limit":
+            order = api.submit_order(
+                symbol=symbol,
+                qty=qty,
+                side=side,
+                type="stop_limit",
+                time_in_force="gtc",
+                limit_price=limit_price,
+                stop_price=stop_price
+            )
+        else:
+            print("Invalid order type.")
+            return None
+
+        print(f"Order status: {order.status}")
+        return order
+    except Exception as e:
+        print(f"Error executing trade: {e}")
+        return None
+
+
+# Main code
+
+# Define the symbol and timeframe
+symbol = "AAPL"
+timeframe = "day"
+
+# Get historical data
+barset = api.get_barset(symbol, timeframe, limit=200)
+bars = barset[symbol]
+
+# Calculate the 50-day moving average
+close_prices = [bar.c for bar in bars]
+sma_50 = sum(close_prices[-50:]) / 50
+
+# Determine the current position
+position = api.get_position(symbol)
+if position:
+    qty = int(position.qty)
+    avg_entry_price = float(position.avg_entry_price)
+    current_price = float(api.get_last_trade(symbol).price)
+    pl = (current_price - avg_entry_price) * qty
+    print(f"Current position: {qty} shares at ${avg_entry_price:.2f}. P/L: ${pl:.2f}")
+else:
+    qty = 0
+    avg_entry_price = None
+    current_price = float(api.get_last_trade(symbol).price)
+    print(f"Not currently holding {symbol}.")
+
+# Determine whether to buy, sell, or hold
+if current_price > sma_50 and not qty:
+    # Buy 100 shares at market price
+    order = execute_trade(symbol, 100, "buy", "market")
+    if order and order.status == "filled":
+        avg_entry_price = float(order.filled_avg_price)
+        print(f"Bought {qty} shares at ${avg_entry_price:.2f}.")
+elif current_price < sma_50 and qty:
+    # Sell all shares at market price
+    order = execute_trade(symbol, qty, "sell", "market")
+    if order and order.status == "filled":
+        pl = (float(order.filled_avg_price) - avg_entry_price) * qty
+        print(f"Sold {qty} shares at ${order.filled_avg_price:.2f}. P/L: ${pl:.2f}")
+else:
+    print("Holding position.")
