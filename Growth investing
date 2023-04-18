@@ -63,4 +63,4 @@ def rebalance_portfolio(symbols):
 while True:
     symbols = ['AAPL', 'GOOG', 'AMZN'] # Replace with your desired symbols
     rebalance_portfolio(symbols)
-    time.sleep(60*60) # Rebalance every hour
+    time.sleep(60*60) # Rebalance every hour 
