@@ -1,0 +1,144 @@
+import alpaca_trade_api as tradeapi
+import pandas as pd
+import ta
+
+# Initialize Alpaca API
+api = tradeapi.REST('<API Key>', '<Secret Key>', base_url='https://paper-api.alpaca.markets')
+
+# Define parameters
+symbols = ['AAPL', 'AMZN', 'GOOG']
+timeframe = 'day'
+lookback_period = 10
+rsi_buy_threshold = 30
+rsi_sell_threshold = 70
+stop_loss_pct = 0.05
+take_profit_pct = 0.10
+max_daily_loss_pct = 0.02
+
+# Define functions
+def get_historical_data(symbol):
+    df = api.get_barset(symbol, timeframe, limit=lookback_period+1).df[symbol]
+    return df
+
+def calculate_indicators(df):
+    df['RSI'] = ta.RSI(df['close'], timeperiod=14)
+    return df
+
+def check_signal(df):
+    if df.iloc[-1]['RSI'] < rsi_buy_threshold:
+        return 'buy'
+    elif df.iloc[-1]['RSI'] > rsi_sell_threshold:
+        return 'sell'
+    else:
+        return 'hold'
+
+def execute_trade(symbol, qty, side, order_type, limit_price=None, stop_price=None):
+    try:
+        if order_type == "limit":
+            order = api.submit_order(
+                symbol=symbol,
+                qty=qty,
+                side=side,
+                type="limit",
+                time_in_force="gtc",
+                limit_price=limit_price
+            )
+        elif order_type == "stop":
+            order = api.submit_order(
+                symbol=symbol,
+                qty=qty,
+                side=side,
+                type="stop_limit",
+                time_in_force="gtc",
+                stop_price=stop_price,
+                limit_price=limit_price
+            )
+        else:
+            print("Invalid order type.")
+            return None
+
+        print(f"Order status: {order.status}")
+        return order
+    except Exception as e:
+        print(f"Error executing trade: {e}")
+        return None
+
+
+# Main code
+for symbol in symbols:
+    # Get historical data
+    historical_data = get_historical_data(symbol)
+
+    # Calculate indicators
+    historical_data = calculate_indicators(historical_data)
+
+    # Check signal
+    signal = check_signal(historical_data)
+
+    # Determine current position
+    position = api.get_position(symbol)
+    if position:
+        qty = int(position.qty)
+        avg_entry_price = float(position.avg_entry_price)
+        current_price = float(api.get_last_trade(symbol).price)
+        pl = (current_price - avg_entry_price) * qty
+        print(f"Current position: {qty} shares at ${avg_entry_price:.2f}. P/L: ${pl:.2f}")
+    else:
+        qty = 0
+        avg_entry_price = None
+        current_price = float(api.get_last_trade(symbol).price)
+        print(f"Not currently holding {symbol}.")
+
+    # Execute trade based on signal
+    if signal == 'buy' and not position:
+        # Buy 100 shares with limit order
+        qty_to_buy = 100
+        limit_price = float(api.get_last_trade(symbol).price) * 1.01 # 1
+        # calculate stop loss and take profit prices
+        stop_loss_price = avg_entry_price * (1 - stop_loss_pct)
+        take_profit_price = avg_entry_price * (1 + take_profit_pct)
+
+        # Execute limit order
+        order = execute_trade(symbol, qty_to_buy, "buy", "limit", limit_price)
+
+        # Check order status
+        if order and order.status == "filled":
+            # Set stop loss and take profit orders
+            stop_loss_order = execute_trade(symbol, qty_to_buy, "sell", "stop", stop_price=stop_loss_price)
+            take_profit_order = execute_trade(symbol, qty_to_buy, "sell", "limit", limit_price=take_profit_price)
+
+            # Check order statuses
+            if stop_loss_order and take_profit_order:
+                print(f"Successfully executed buy order for {symbol}.")
+            else:
+                # Cancel unfilled orders
+                api.cancel_order(stop_loss_order.id)
+                api.cancel_order(take_profit_order.id)
+                print("Error executing stop loss or take profit order.")
+    else:
+        print("Error executing buy order.")
+
+    elif signal == 'sell' and position:
+        # Sell all shares
+        qty_to_sell = qty
+        limit_price = float(api.get_last_trade(symbol).price) * 0.99 # 2
+
+        # Execute limit order
+        order = execute_trade(symbol, qty_to_sell, "sell", "limit", limit_price)
+
+    # Check order status
+    if order and order.status == "filled":
+        print(f"Successfully executed sell order for {symbol}.")
+
+    else:
+        print("Error executing sell order.")
+
+else:
+    print(f"No action taken for {symbol}.")
+
+# Check daily P/L
+today_pl = float(api.get_account().equity) - float(api.get_account().last_equity)
+daily_loss_pct = today_pl / float(api.get_account().last_equity)
+if daily_loss_pct < -max_daily_loss_pct:
+    print(f"Daily loss limit exceeded. Stopping trading for the day.")
+    break
